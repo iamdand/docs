@@ -1,0 +1,10 @@
+{
+  "enabledMcpjsonServers": [
+    "mintlify"
+  ],
+  "permissions": {
+    "allow": [
+      "mcp__mintlify__SearchMintlify"
+    ]
+  }
+}

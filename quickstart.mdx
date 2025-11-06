@@ -1,80 +1,440 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+description: "Learn how to build an intelligent AI agent using LangGraph in **under 3 minutes**"
 ---
 
-## Get started in three steps
+import { ColorBlock } from "/snippets/color-block.jsx";
+import { ColorHeader } from "/snippets/color-header.jsx";
 
-Get your documentation site running locally and make your first customization.
+---
 
-### Step 1: Set up your local environment
+## <Icon icon="exclamation-circle" size={32} className="inline-block mb-1" /> What you will build
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+In this tutorial, you'll build a **ReAct agent** (Reasoning + Acting) that intelligently manages a weekly event schedule. The agent will demonstrate:
 
-### Step 2: Deploy your changes
+- **Intelligent tool selection** - choosing the right tool based on context
+- **Natural language understanding** - parsing user queries about dates and events
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
+<Columns cols={3} className="mt-10">
+  <ColorBlock addClass="col-span-2" title="What you will learn">
+    - Setting up a LangGraph project from scratch
+    - Creating custom tools with schemas
+    - Building an agent with `createAgent`
+    - Testing intelligent tool selection
+  </ColorBlock>
+  <div className="flex flex-row gap-4 sm:flex-col sm:gap-0 sm:w-full">
+    <ColorBlock bgColor="primary">
+      <Icon icon="clock" color="16a34a" size={24} /> **Time to complete:**<br/>
+      <div className="text-3xl my-3 text-center text-primary dark:text-primary-light">3 minutes</div>
+    </ColorBlock>
+    <ColorBlock bgColor="primary">
+      <Icon icon="coin" color="16a34a" size={24} /> **Estimated cost:**<br/>
+      <div className="text-3xl my-3 text-center text-primary dark:text-primary-light">$0[\*](#cost-disclaimer)</div>
+    </ColorBlock>
+  </div>
+</Columns>
+
+
+---
+
+## Step 1: Create Your Project
+
+<Tip>
+<h3 className="mint-font-semibold mint-text-2xl dark:text-white">Prerequisites</h3>
+- **Node.js v18+** installed
+- An **OpenAI API key** ([Get one
+  here](https://platform.openai.com/api-keys))
+- Basic knowledge of JavaScript/TypeScript
+
+</Tip>
+
+First, let's create a new directory for your agent:
+
+```bash
+mkdir langgraph-agent-tutorial && cd langgraph-agent-tutorial
+```
+
+Initialize a new Node.js project:
+
+```bash
+npm init -y && npm pkg set type=module
+```
+
+---
+
+## Step 2: Install Dependencies
+
+Install the required LangChain and LangGraph v1 packages:
+
+```bash
+npm install langchain @langchain/openai @langchain/core zod
+```
+
+<Info>
+  Starting with **LangChain** v1, **LangGraph** is the direct dependency for the
+  langchain library, therefore we don't have to install it explicitely and it
+  will be used under the hood. We are using `createAgent` API for building
+  agents with minimal code, formerly the prebuilt agent implementation from
+  langgraph library.
+</Info>
+
+---
+
+## Step 3: Copy the Script
+
+<Tip>
+  Don't forget to replace `YOUR_OPENAI_API_KEY` with your actual OpenAI API key
+  in the code below.
+</Tip>
+
+<CodeGroup>
+
+```javascript agent.js
+import { tool } from "@langchain/core/tools";
+import { ChatOpenAI } from "@langchain/openai";
+import { createAgent } from "langchain";
+import { z } from "zod";
+
+// Sample weekly events data
+const weekEvents = {
+  monday: "Team standup meeting at 10 AM",
+  tuesday: "Gym session at 6 PM",
+  wednesday: "Office party at 7 PM",
+  thursday: "Client presentation at 2 PM",
+  friday: "Happy hour party at 5 PM",
+  saturday: "Hiking trip with friends",
+  sunday: "Relaxing day at home",
+};
+
+// Tool 1: Get All Events
+const getAllEvents = tool(
+  async () => {
+    console.log("get_all_events called");
+    return JSON.stringify(weekEvents, null, 2);
+  },
+  {
+    name: "get_all_events",
+    description:
+      "Get the complete schedule for the entire week with all events. Use this when you need to see multiple days or filter events by type.",
+    schema: z.object({}),
+  }
+);
+
+// Tool 2: Get Single Day Event
+const getSingleDayEvent = tool(
+  async ({ day }) => {
+    console.log("get_single_day_event called");
+    const normalizedDay = day.toLowerCase();
+    const event = weekEvents[normalizedDay];
+    return event ? `${day}: ${event}` : `No event found for ${day}`;
+  },
+  {
+    name: "get_single_day_event",
+    description:
+      "Get the event for a specific day of the week. Accepts a day name (monday, tuesday, wednesday, thursday, friday, saturday, sunday).",
+    schema: z.object({
+      day: z.string().describe("The day of the week to get the event for"),
+    }),
+  }
+);
+
+// Initialize the OpenAI model
+const model = new ChatOpenAI({
+  model: "gpt-3.5-turbo",
+  temperature: 0,
+  apiKey: "YOUR_OPENAI_API_KEY", // Replace with your actual key
+});
+
+// Create the Agent
+const agent = createAgent({
+  model,
+  tools: [getAllEvents, getSingleDayEvent],
+  systemPrompt:
+    "You are a helpful assistant that manages weekly event schedules. If the user doesn't specify what day it is today, assume today is Monday. Use get_all_events when you need to filter events or see multiple days. Use get_single_day_event when you need information about a specific day.",
+});
+
+// Run the Agent
+const result = await agent.invoke({
+  messages: [{ role: "user", content: process.argv[2] || "Show all events" }],
+});
+
+// Output the final response
+console.log(result.messages[result.messages.length - 1].content);
+```
+
+</CodeGroup>
+
+---
+
+## Step 4: You are done! Test Your Agent
+
+We have declared a list of days and events that happen on those days (see below).
+
+```javascript
+const weekEvents = {
+  monday: "Team standup meeting at 10 AM",
+  tuesday: "Gym session at 6 PM",
+  wednesday: "Office party at 7 PM",
+  thursday: "Client presentation at 2 PM",
+  friday: "Happy hour party at 5 PM",
+  saturday: "Hiking trip with friends",
+  sunday: "Relaxing day at home",
+};
+```
+
+Now, you can ask your agent to answer questions about the events using the tools you created. Test how smart your agent is by asking it to find events based on different criteria. Don't make it too easy for it!
+
+Run your agent with different queries to see intelligent tool selection in action:
+
+### Test 1: Specific Day Query
+
+```bash
+node agent.js "What's happening on Friday?"
+```
+
+<Accordion title="What to expect from test 1">
+  Now, that was easy! The agent should recognize that this is a direct query for
+  a specific day and use the `get_single_day_event` tool to fetch Friday's
+  event.
 </Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+### Test 2: Relative Day Calculation
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+```bash
+node agent.js "Today is Tuesday, what event is tomorrow?"
+```
 
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
+<Accordion title="What to expect from test 2">
+  This one takes a bit of reasoning. The agent figures out that tomorrow is
+  Wednesday and uses `get_single_day_event("wednesday")`
 </Accordion>
 
-## Next steps
+### Test 3: Filtering Query
 
-Now that you have your docs running, explore these key features:
+```bash
+node agent.js "Show me all the party events"
+```
 
-<CardGroup cols={2}>
+<Accordion title="What to expect from test 3">
+  The agent should use the `get_all_events` tool to retrieve the full schedule
+  and then filter for events containing "party".
+</Accordion>
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+### Test 4: Default Day Behavior
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+```bash
+node agent.js "What event is in 2 days?"
+```
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
+<Accordion title="What to expect from test 4">
+  Since the agent assumes today is Monday (as per the system prompt), it should
+  calculate Wednesday and use `get_single_day_event("wednesday")`.
+</Accordion>
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
+---
 
-</CardGroup>
+{/* <ColorHeader title="How It Works: The ReAct Pattern" /> */}
+
+## How It Works: The ReAct Pattern
+
+Your agent follows the **ReAct (Reasoning + Acting)** pattern:
+
+![alt](/./images/langgraph-react-pattern-white.png "Agent Overview")
+
+<Steps>
+  <Step title="Input">The user provides a natural language query(\__start\__)</Step>
+  <Step title="Reason">
+    The agent receives a user query and analyzes what information it needs (module_request)
+  </Step>
+  <Step title="Act">
+    The agent decides which tool(s) to call and executes them (tool_call)
+  </Step>
+  <Step title="Observe">The agent receives the tool results (module_request)</Step>
+  <Step title="Respond">
+    The agent formulates a natural language response based on the results (\__end\__)
+  </Step>
+</Steps>
+
+
+<ColorBlock titl="Tool Selection Logic">
+
+__Here's how the agent chooses between tools:__
+
+| Query                               | Tool Selected          | Why?                                 |
+| ----------------------------------- | ---------------------- | ------------------------------------ |
+| "What's on Friday?"                 | `get_single_day_event` | Direct day lookup                    |
+| "Show me all parties"               | `get_all_events`       | Needs to filter across multiple days |
+| "Today is Monday, event in 2 days?" | `get_single_day_event` | Calculates specific day (Wednesday)  |
+
+</ColorBlock>
+
+## Step by Step Explanation
+
+### Create the Agent Script
+
+Create a file called `agent.js`. Start by importing dependecies and defining the weekly events data:
+
+```javascript agent.js
+import { tool } from "@langchain/core/tools";
+import { ChatOpenAI } from "@langchain/openai";
+import { createAgent } from "langchain";
+import { z } from "zod";
+
+// Sample weekly events data
+const weekEvents = {
+  monday: "Team standup meeting at 10 AM",
+  tuesday: "Gym session at 6 PM",
+  wednesday: "Office party at 7 PM",
+  thursday: "Client presentation at 2 PM",
+  friday: "Happy hour party at 5 PM",
+  saturday: "Hiking trip with friends",
+  sunday: "Relaxing day at home",
+};
+
+```
+
+This simple object represents our weekly schedule that the agent will query.
+
+### Define Your Tools
+
+Tools are functions that your agent can call. We are creating 2 tools.
+
+The first tool returns the entire week's schedule. The agent uses it when it needs to filter or compare multiple days.
+
+```javascript agent.js
+// Tool 1: Get All Events
+const getAllEvents = tool(
+  async () => {
+    console.log("get_all_events called");
+    return JSON.stringify(weekEvents, null, 2);
+  },
+  {
+    name: "get_all_events",
+    description:
+      "Get the complete schedule for the entire week with all events. Use this when you need to see multiple days or filter events by type.",
+    schema: z.object({}),
+  }
+);
+```
+
+The second tool returns a specific day's event. The agent uses it for direct day queries.
+
+```javascript agent.js
+// Tool 2: Get Single Day Event
+const getSingleDayEvent = tool(
+  async ({ day }) => {
+    console.log("get_single_day_event called");
+    const normalizedDay = day.toLowerCase();
+    const event = weekEvents[normalizedDay];
+    return event ? `${day}: ${event}` : `No event found for ${day}`;
+  },
+  {
+    name: "get_single_day_event",
+    description:
+      "Get the event for a specific day of the week. Accepts a day name (monday, tuesday, wednesday, thursday, friday, saturday, sunday).",
+    schema: z.object({
+      day: z.string().describe("The day of the week to get the event for"),
+    }),
+  }
+);
+```
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  **Tool Design Tip:** The `description` field is crucial! It tells the LLM when
+  and how to use each tool. Clear descriptions lead to better tool selection.
 </Note>
+
+### Initialize the Model
+
+Configure the OpenAI model with your API key:
+
+```javascript agent.js
+const model = new ChatOpenAI({
+  model: "gpt-3.5-turbo",
+  temperature: 0,
+  apiKey: "YOUR_OPENAI_API_KEY", // Replace with your actual key
+});
+```
+
+<Warning>
+  **Security Note:** In production, never hardcode API keys. Use environment
+  variables or a secrets manager instead.
+</Warning>
+
+### Create the Agent
+
+Now for the magic! Use `createAgent` to build your ReAct agent:
+
+```javascript agent.js
+const agent = createAgent({
+  model,
+  tools: [getAllEvents, getSingleDayEvent],
+  systemPrompt:
+    "You are a helpful assistant that manages weekly event schedules. If the user doesn't specify what day it is today, assume today is Monday. Use get_all_events when you need to filter events or see multiple days. Use get_single_day_event when you need information about a specific day.",
+});
+```
+
+<Info>
+  **Under the Hood:** `createAgent` is built on top of LangGraph, giving you
+  automatic support for persistence, streaming, and human-in-the-loop features.
+</Info>
+
+### Run the Agent
+
+Add code to invoke the agent with a user query:
+
+```javascript agent.js
+// Run the Agent
+const result = await agent.invoke({
+  messages: [{ role: "user", content: process.argv[2] || "Show all events" }],
+});
+
+// Output the final response
+console.log(result.messages[result.messages.length - 1].content);
+```
+
+
+### Troubleshooting
+<AccordionGroup>
+  <Accordion title="API Key errors">
+    Verify your OpenAI API key is valid and has credits available. Check it at
+    [platform.openai.com](https://platform.openai.com/api-keys)
+  </Accordion>
+
+  <Accordion title="Agent not selecting the right tool">
+    Improve your tool descriptions! The LLM relies heavily on the `description` field to understand when to use each tool.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Next Steps
+
+Congratulations! You've built your first LangGraph agent. And this is just the beginning. In just a few more minutes, you can enhance your agent with advanced features by integrating it with LangGraph Studio. You will be able to:
+
+- 🎨 Visualize the agent's graph structure
+- 💬 Chat with your agent interactively
+- 🔍 Debug tool calls and state transitions
+
+<CardGroup cols={2}>
+  <Card title="Add Memory" icon="brain">
+    Implement conversation persistence with checkpointing
+  </Card>
+  <Card title="More Tools" icon="wrench">
+    Create tools for adding, editing, or deleting events
+  </Card>
+  <Card title="Streaming" icon="stream">
+    Enable real-time token streaming for better UX
+  </Card>
+  <Card title="Human-in-the-Loop" icon="hand">
+    Add approval steps before executing sensitive actions
+  </Card>
+</CardGroup>
+
+---
+
+<a id="cost-disclaimer"></a>
+
+**Cost Disclaimer**
+
+\* This cost estimate is based on minimal usage with the GPT-3.5-turbo model. Actual costs may vary depending on your model selection, the number of queries you run, and current OpenAI pricing. For the latest pricing information, visit [OpenAI's pricing page](https://openai.com/pricing).

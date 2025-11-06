@@ -1,0 +1,42 @@
+/* Footer disclaimer */
+footer::after {
+  content: "Disclaimer: All logos, trademarks, and registered names displayed on this site are the property of their respective owners. This site was created for demonstration purposes only. We do not claim ownership of any mentioned brands, trademarks, or registered names. All rights belong to their respective trademark holders.";
+  display: block;
+  text-align: center;
+  padding: 1.5rem 1rem;
+  margin-top: 2rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #6b7280;
+  border-top: 1px solid #e5e7eb;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  footer::after {
+    color: #9ca3af;
+    border-top-color: #374151;
+  }
+}
+
+.col-span-2 {
+  grid-column: span 2 / span 2;
+}
+
+/* Optional: Define a single-column class for other children */
+.col-span-1 {
+  grid-column: span 1 / span 1;
+}
+
+.reset-lists ul {
+  margin: 1.5rem;
+
+    &>li {
+      margin-bottom: 0.5rem; 
+      list-style-type: disc;
+    }
+  } 
+} 
