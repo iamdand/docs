@@ -50,5 +50,10 @@
   },
   "footer": {
     "socials": {}
+  },
+  "integrations": {
+    "ga4": {
+      "measurementId": "G-THEFBF0CRH"
+    }
   }
 }
